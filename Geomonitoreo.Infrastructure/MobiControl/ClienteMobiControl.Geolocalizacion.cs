@@ -121,9 +121,15 @@ public partial class ClienteMobiControl
         var empresaId = contextoEmpresa.EmpresaRequerida;
         var (token, resultado) = await ObtenerTokenAsync(empresaId, config, ct);
 
-        return token is null
-            ? throw new ErrorSolicitudException($"MobiControl rechazó la conexión: {resultado.MensajeError}")
-            : (config, empresaId, token);
+        // Con un usuario o una contraseña mal escritos la consola responde 400 o 500 sin cuerpo: el
+        // detalle vacío no le dice nada a quien mira el mapa, así que se le indica qué revisar.
+        if (token is null)
+            throw new ErrorSolicitudException(string.IsNullOrWhiteSpace(resultado.MensajeError)
+                ? $"MobiControl rechazó la conexión ({resultado.CodigoHttp?.ToString() ?? "sin respuesta"}). Revise en One " +
+                  "(Geomonitoreo → Variables) el usuario, la contraseña, el client ID y el client secret de la consola."
+                : $"MobiControl rechazó la conexión: {resultado.MensajeError}");
+
+        return (config, empresaId, token);
     }
 
     /// <summary>GET con el token de la empresa. Null si el recurso no existe (404) o viene vacío.</summary>
