@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Geomonitoreo.Application\Geomonitoreo.Application.csproj" />
+    <ProjectReference Include="..\Geomonitoreo.Infrastructure\Geomonitoreo.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <!-- La configuración de desarrollo apunta al SQL del equipo. Si viaja en el publicado y el
+       App Service quedara con ASPNETCORE_ENVIRONMENT=Development, el API migraría contra un
+       servidor inalcanzable en vez de la base de Azure. -->
+  <ItemGroup>
+    <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
+</Project>

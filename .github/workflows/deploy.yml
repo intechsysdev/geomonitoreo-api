@@ -1,0 +1,58 @@
+# Despliegue al App Service de Linux. No corre hasta que el repositorio tenga la variable
+# AZURE_WEBAPP_NAME (Settings → Secrets and variables → Actions → Variables) y el secreto
+# AZURE_WEBAPP_PUBLISH_PROFILE con el perfil de publicación del App Service.
+#
+# Las migraciones las aplica el propio API al arrancar.
+
+name: Desplegar geomonitoreo-api
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    if: vars.AZURE_WEBAPP_NAME != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      # Solo el API: publicar la solución mete el runtimeconfig de Infrastructure en la misma
+      # carpeta y App Service no sabe cuál arrancar.
+      - name: Publicar
+        run: dotnet publish Geomonitoreo.API/Geomonitoreo.API.csproj -c Release -o publicado
+
+      - name: Empaquetar
+        run: cd publicado && zip -qr ../app.zip .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app
+          path: app.zip
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: app
+
+      # type: zip usa OneDeploy, que limpia y reinicia. Con ZipDeploy (sin type) la app quedaba
+      # con DLL a medio reemplazar en firma-digital-api.
+      - uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+          slot-name: Production
+          package: app.zip
+          type: zip
+          clean: true
+          restart: true
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}

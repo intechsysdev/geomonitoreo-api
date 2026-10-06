@@ -1,0 +1,11 @@
+# Salidas de compilación: se generan en cada build. Versionarlas hizo que el despliegue publicara
+# DLL de versiones anteriores (MSBuild las daba por vigentes tras el checkout).
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+
+# Almacenamiento local de firmas y actas en desarrollo
+Geomonitoreo.API/almacenamiento/
