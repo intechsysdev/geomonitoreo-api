@@ -37,10 +37,10 @@ Geomonitoreo.API             Controladores, autenticación con One, resolución 
 ## Desarrollo
 
 ```bash
-dotnet run --project Geomonitoreo.API     # http://localhost:5240, LocalDB "Geomonitoreo", One en http://localhost:5180
+dotnet run --project Geomonitoreo.API --launch-profile http     # http://localhost:5240
 ```
 
-`appsettings.Development.json` apunta a LocalDB y a One local. Las migraciones se aplican al arrancar.
+`appsettings.Development.json` usa la base `geomonitoreo_db` del SQL Server local (JEFO-PC, autenticación de Windows) y el One de producción. La base y sus tablas se crean al arrancar.
 
 ## Despliegue
 
