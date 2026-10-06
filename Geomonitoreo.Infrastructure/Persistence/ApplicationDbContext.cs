@@ -61,7 +61,13 @@ public class ApplicationDbContext(
             e.Property(x => x.Vertices).HasColumnType("nvarchar(max)");
             e.Property(x => x.Color).HasColumnType("varchar(7)").HasDefaultValue("#0ea5e9");
             e.Property(x => x.Activa).HasDefaultValue(true);
+            e.Property(x => x.ReferenceIdMobiControl).HasColumnType("varchar(64)");
+            e.Property(x => x.ExisteEnMobiControl).HasDefaultValue(true);
             e.Property(x => x.CreadaPor).HasMaxLength(200);
+
+            // El nombre es la llave en MobiControl: dos filas con el mismo nombre en la misma
+            // empresa serían la misma geocerca de la consola.
+            e.HasIndex(x => new { x.EmpresaId, x.Nombre }).IsUnique();
             e.Property(x => x.FechaCreacion).HasDefaultValueSql("SYSUTCDATETIME()");
         });
 

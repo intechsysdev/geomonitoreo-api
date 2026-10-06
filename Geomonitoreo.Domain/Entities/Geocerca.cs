@@ -10,8 +10,12 @@ public enum TipoGeocerca
 }
 
 /// <summary>
-/// Zona del mapa contra la que se compara la posición de los equipos: qué equipos están dentro,
-/// cuáles salieron. Es de la empresa, no de MobiControl: la consola no sabe de zonas.
+/// Zona del mapa contra la que se compara la posición de los equipos. La geocerca vive en
+/// MobiControl —allí la usan las reglas de la consola—; esta fila es el índice de Geomonitoreo:
+/// cómo encontrarla (nombre y ReferenceId), lo que MobiControl no guarda (color, descripción, si
+/// se usa) y una copia de sus vértices para calcular sin ir a la consola en cada consulta.
+///
+/// Hace falta porque la API de MobiControl no lista geocercas: solo las da por nombre.
 /// </summary>
 public class Geocerca : IDeEmpresa
 {
@@ -45,6 +49,17 @@ public class Geocerca : IDeEmpresa
     public string Color { get; set; } = "#0ea5e9";
 
     public bool Activa { get; set; } = true;
+
+    // ---- MobiControl ----
+
+    /// <summary>Identificador de la geocerca en MobiControl. Se conserva al renombrarla.</summary>
+    public string? ReferenceIdMobiControl { get; set; }
+
+    /// <summary>False si la última vez que se le preguntó, MobiControl ya no la tenía (la borraron en la consola).</summary>
+    public bool ExisteEnMobiControl { get; set; } = true;
+
+    /// <summary>Cuándo se trajeron los vértices de MobiControl por última vez.</summary>
+    public DateTime? FechaSincronizacion { get; set; }
 
     public string? CreadaPor { get; set; }
     public DateTime FechaCreacion { get; set; }

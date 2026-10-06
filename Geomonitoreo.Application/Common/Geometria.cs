@@ -67,6 +67,22 @@ public static class Geometria
         }
     }
 
+    /// <summary>Círculo como polígono abierto de <paramref name="lados"/> vértices <c>[lng, lat]</c>.</summary>
+    public static IReadOnlyList<double[]> Circulo(double lat, double lng, double radioMetros, int lados)
+    {
+        var dLat = radioMetros / RadioTierraMetros * (180 / Math.PI);
+        var dLng = dLat / Math.Cos(Radianes(lat));
+
+        return
+        [
+            .. Enumerable.Range(0, lados).Select(i =>
+            {
+                var t = 2 * Math.PI * i / lados;
+                return new[] { Math.Round(lng + dLng * Math.Cos(t), 7), Math.Round(lat + dLat * Math.Sin(t), 7) };
+            }),
+        ];
+    }
+
     public static bool CoordenadaValida(double lat, double lng) =>
         lat is >= -90 and <= 90 && lng is >= -180 and <= 180 && !(Math.Abs(lat) < 1e-6 && Math.Abs(lng) < 1e-6);
 
