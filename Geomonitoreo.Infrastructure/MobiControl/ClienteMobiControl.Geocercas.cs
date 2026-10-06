@@ -17,10 +17,27 @@ namespace Geomonitoreo.Infrastructure.MobiControl;
 /// - <c>PUT /geofences/{nombre}</c> solo la renombra: ignora los vértices, y rechaza el cuerpo si el
 ///   nombre es el mismo que ya tiene ("ya existe"). Para cambiar la forma hay que borrarla y crearla.
 /// - <c>DELETE /geofences/{nombre}</c> la borra.
-/// - No hay forma de listarlas todas.
+/// - <c>GET /geofences/summary</c> las lista todas, solo con <c>Name</c> y <c>ReferenceId</c>.
 /// </summary>
 public partial class ClienteMobiControl
 {
+    public async Task<IReadOnlyList<ResumenGeocercaMobiControl>> ListarGeocercasAsync(CancellationToken ct = default)
+    {
+        var (config, empresaId, token) = await SesionAsync(ct);
+        var (codigo, texto) = await GeocercaAsync(empresaId, config, token, HttpMethod.Get, "summary", null, ct);
+        Asegurar(codigo, texto);
+
+        using var json = JsonDocument.Parse(texto);
+        if (json.RootElement.ValueKind != JsonValueKind.Array) return [];
+
+        return
+        [
+            .. json.RootElement.EnumerateArray()
+                .Select(g => new ResumenGeocercaMobiControl(Texto(g, "Name") ?? string.Empty, Texto(g, "ReferenceId")))
+                .Where(g => g.Nombre.Length > 0)
+        ];
+    }
+
     public async Task<GeocercaMobiControl?> ObtenerGeocercaAsync(string nombre, CancellationToken ct = default)
     {
         var (config, empresaId, token) = await SesionAsync(ct);

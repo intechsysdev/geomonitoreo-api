@@ -29,7 +29,10 @@ public interface IClienteMobiControl
 
     // ---- Geocercas ----
     // MobiControl solo acepta polígonos cerrados (el primer vértice repetido al final) de al menos
-    // cuatro puntos, y no tiene una ruta para listarlas: se piden por nombre.
+    // cuatro puntos. La lista trae solo nombre y ReferenceId; los vértices se piden por nombre.
+
+    /// <summary>Todas las geocercas de la consola, sin sus vértices.</summary>
+    Task<IReadOnlyList<ResumenGeocercaMobiControl>> ListarGeocercasAsync(CancellationToken ct = default);
 
     /// <summary>La geocerca con ese nombre, o null si MobiControl no la tiene.</summary>
     Task<GeocercaMobiControl?> ObtenerGeocercaAsync(string nombre, CancellationToken ct = default);
@@ -50,6 +53,8 @@ public interface IClienteMobiControl
     /// <summary>False si MobiControl ya no la tenía.</summary>
     Task<bool> EliminarGeocercaAsync(string nombre, CancellationToken ct = default);
 }
+
+public record ResumenGeocercaMobiControl(string Nombre, string? ReferenceId);
 
 /// <param name="Vertices">Como <c>[lng, lat]</c>, el orden de GeoJSON, sin repetir el primero al final.</param>
 public record GeocercaMobiControl(string Nombre, string? ReferenceId, IReadOnlyList<double[]> Vertices);

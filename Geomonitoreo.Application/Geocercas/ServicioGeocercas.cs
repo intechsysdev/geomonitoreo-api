@@ -50,26 +50,18 @@ public class GuardarGeocercaRequest
     public bool Activa { get; set; } = true;
 }
 
-public class ImportarGeocercaRequest
-{
-    /// <summary>Nombre exacto de la geocerca en MobiControl.</summary>
-    [Required, MaxLength(100)] public string Nombre { get; set; } = string.Empty;
-}
-
 public interface IServicioGeocercas
 {
     Task<ListaGeocercasDto> ListarAsync(CancellationToken ct = default);
     Task<GeocercaDto> CrearAsync(GuardarGeocercaRequest solicitud, CancellationToken ct = default);
     Task<GeocercaDto> ActualizarAsync(Guid uid, GuardarGeocercaRequest solicitud, CancellationToken ct = default);
     Task EliminarAsync(Guid uid, CancellationToken ct = default);
-
-    /// <summary>Trae una geocerca creada en la consola de MobiControl, por su nombre.</summary>
-    Task<GeocercaDto> ImportarAsync(string nombre, CancellationToken ct = default);
 }
 
 /// <summary>
-/// Geocercas de la empresa, guardadas en MobiControl. Geomonitoreo lleva el índice: la API de la
-/// consola no las lista, así que se recuerda cuáles hay y se piden por nombre.
+/// Geocercas de la empresa, guardadas en MobiControl. La lista sale de la consola: las que se crean
+/// allá aparecen aquí solas. Geomonitoreo guarda además lo que MobiControl no tiene (color,
+/// descripción, si está activa, si se dibujó como círculo).
 /// </summary>
 public partial class ServicioGeocercas(
     IApplicationDbContext db,
@@ -84,15 +76,20 @@ public partial class ServicioGeocercas(
 
     private const int ConsultasSimultaneas = 4;
 
+    /// <summary>Color de las geocercas que llegan de la consola, para distinguirlas de las dibujadas aquí.</summary>
+    private const string ColorDeConsola = "#a855f7";
+
+    private const int LargoNombre = 100;
+
     public async Task<ListaGeocercasDto> ListarAsync(CancellationToken ct = default)
     {
-        Requerida();
-        var geocercas = await db.Geocercas.OrderBy(g => g.Nombre).ToListAsync(ct);
+        var empresaId = Requerida();
+        var geocercas = await db.Geocercas.ToListAsync(ct);
 
         string? aviso = null;
         try
         {
-            await SincronizarAsync(geocercas, ct);
+            await SincronizarAsync(empresaId, geocercas, ct);
             await db.SaveChangesAsync(ct);
         }
         catch (ErrorSolicitudException ex)
@@ -101,7 +98,8 @@ public partial class ServicioGeocercas(
             aviso = ex.Message;
         }
 
-        return new ListaGeocercasDto([.. geocercas.Select(AVista)], aviso is null, aviso);
+        return new ListaGeocercasDto(
+            [.. geocercas.OrderBy(g => g.Nombre).Select(AVista)], aviso is null, aviso);
     }
 
     public async Task<GeocercaDto> CrearAsync(GuardarGeocercaRequest solicitud, CancellationToken ct = default)
@@ -165,57 +163,84 @@ public partial class ServicioGeocercas(
         await db.SaveChangesAsync(ct);
     }
 
-    public async Task<GeocercaDto> ImportarAsync(string nombre, CancellationToken ct = default)
-    {
-        var empresaId = Requerida();
-        var limpio = nombre?.Trim();
-        if (string.IsNullOrEmpty(limpio)) throw new ErrorSolicitudException("Escriba el nombre de la geocerca tal como está en MobiControl.");
-
-        await NombreLibreAsync(limpio, null, ct);
-
-        var enConsola = await mobiControl.ObtenerGeocercaAsync(limpio, ct)
-            ?? throw new ErrorSolicitudException(
-                $"MobiControl no tiene una geocerca llamada \"{limpio}\". El nombre debe ser exacto, con mayúsculas y espacios.");
-
-        if (enConsola.Vertices.Count < 3)
-            throw new ErrorSolicitudException("La geocerca de MobiControl no tiene un contorno que se pueda dibujar.");
-
-        var geocerca = new Geocerca
-        {
-            EmpresaId = empresaId,
-            Nombre = enConsola.Nombre,
-            Tipo = TipoGeocerca.POLIGONO,
-            Color = "#a855f7",
-            CreadaPor = empresa.Usuario,
-            FechaCreacion = DateTime.UtcNow,
-        };
-        Sincronizada(geocerca, enConsola);
-
-        db.Geocercas.Add(geocerca);
-        await db.SaveChangesAsync(ct);
-        return AVista(geocerca);
-    }
-
     // ------------------------------------------------------------------------------------
 
     /// <summary>
-    /// Trae de MobiControl la forma vigente de cada geocerca, de a varias a la vez. Si alguien la
-    /// cambió en la consola, aquí se ve el cambio; si la borró, queda marcada.
+    /// Deja el índice igual a la consola. De MobiControl sale la lista (nombre y ReferenceId) y,
+    /// para cada una, su forma vigente:
+    /// - las creadas en la consola se agregan;
+    /// - las renombradas allá se reconocen por su ReferenceId y toman el nombre nuevo;
+    /// - las que ya no están quedan marcadas, con su forma guardada, para volver a crearlas o quitarlas.
     /// </summary>
-    private async Task SincronizarAsync(List<Geocerca> geocercas, CancellationToken ct)
+    private async Task SincronizarAsync(int empresaId, List<Geocerca> geocercas, CancellationToken ct)
     {
-        if (geocercas.Count == 0) return;
+        var resumen = await mobiControl.ListarGeocercasAsync(ct);
 
-        var resultados = new Dictionary<int, GeocercaMobiControl?>();
+        var porReferencia = geocercas
+            .Where(g => !string.IsNullOrEmpty(g.ReferenceIdMobiControl))
+            .GroupBy(g => g.ReferenceIdMobiControl!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
+
+        var vigentes = new List<Geocerca>();
+        var nuevas = new List<Geocerca>();
+
+        foreach (var enConsola in resumen)
+        {
+            if (enConsola.Nombre.Length > LargoNombre)
+            {
+                logger.LogWarning("La geocerca {Nombre} de MobiControl tiene un nombre demasiado largo; no se muestra.", enConsola.Nombre);
+                continue;
+            }
+
+            var local = enConsola.ReferenceId is { } referencia && porReferencia.TryGetValue(referencia, out var porRef)
+                ? porRef
+                : geocercas.FirstOrDefault(g => !vigentes.Contains(g) && string.Equals(g.Nombre, enConsola.Nombre, StringComparison.Ordinal));
+
+            if (local is null)
+            {
+                local = new Geocerca
+                {
+                    EmpresaId = empresaId,
+                    Nombre = enConsola.Nombre,
+                    Tipo = TipoGeocerca.POLIGONO,
+                    Color = ColorDeConsola,
+                    CreadaPor = "MobiControl",
+                    FechaCreacion = DateTime.UtcNow,
+                };
+                nuevas.Add(local);
+            }
+            else if (local.Nombre != enConsola.Nombre)
+            {
+                // Renombrada en la consola. Si otra fila tenía ese nombre, es una geocerca que ya no
+                // existe allá (el nombre es único en MobiControl): se quita para no chocar.
+                var estorbo = geocercas.FirstOrDefault(g => g != local && g.Nombre == enConsola.Nombre);
+                var estorboSigueAlla = estorbo?.ReferenceIdMobiControl is { } suya
+                                       && resumen.Any(r => string.Equals(r.ReferenceId, suya, StringComparison.OrdinalIgnoreCase));
+                if (estorbo is not null && !estorboSigueAlla)
+                {
+                    db.Geocercas.Remove(estorbo);
+                    geocercas.Remove(estorbo);
+                }
+                local.Nombre = enConsola.Nombre;
+            }
+
+            vigentes.Add(local);
+        }
+
+        foreach (var g in geocercas.Where(g => !vigentes.Contains(g)))
+            g.ExisteEnMobiControl = false;
+
+        // La forma de cada una, de a varias a la vez.
+        var formas = new Dictionary<Geocerca, GeocercaMobiControl?>();
         using var cupo = new SemaphoreSlim(ConsultasSimultaneas);
 
-        await Task.WhenAll(geocercas.Select(async g =>
+        await Task.WhenAll(vigentes.Select(async g =>
         {
             await cupo.WaitAsync(ct);
             try
             {
-                var enConsola = await mobiControl.ObtenerGeocercaAsync(g.Nombre, ct);
-                lock (resultados) resultados[g.GeocercaId] = enConsola;
+                var forma = await mobiControl.ObtenerGeocercaAsync(g.Nombre, ct);
+                lock (formas) formas[g] = forma;
             }
             finally
             {
@@ -223,19 +248,28 @@ public partial class ServicioGeocercas(
             }
         }));
 
-        foreach (var g in geocercas)
+        foreach (var g in vigentes)
         {
-            if (resultados[g.GeocercaId] is { } enConsola)
+            var forma = formas[g];
+            var esNueva = nuevas.Contains(g);
+
+            // Sin contorno no hay qué dibujar: una nueva así no se agrega, una conocida conserva lo suyo.
+            if (forma is null || forma.Vertices.Count < 3)
             {
-                // Un círculo dibujado aquí vuelve como polígono: se conserva como círculo mientras
-                // nadie lo haya cambiado en la consola.
-                var esElMismoCirculo = g.Tipo == TipoGeocerca.CIRCULO && enConsola.Vertices.Count == LadosCirculo;
-                if (!esElMismoCirculo) g.Tipo = TipoGeocerca.POLIGONO;
-                Sincronizada(g, enConsola);
+                if (!esNueva && forma is null) g.ExisteEnMobiControl = false;
+                continue;
             }
-            else
+
+            // Un círculo dibujado aquí vuelve como polígono: se conserva como círculo mientras
+            // nadie lo haya cambiado en la consola.
+            var esElMismoCirculo = g.Tipo == TipoGeocerca.CIRCULO && forma.Vertices.Count == LadosCirculo;
+            if (!esElMismoCirculo) g.Tipo = TipoGeocerca.POLIGONO;
+            Sincronizada(g, forma);
+
+            if (esNueva)
             {
-                g.ExisteEnMobiControl = false;
+                db.Geocercas.Add(g);
+                geocercas.Add(g);
             }
         }
     }

@@ -14,8 +14,9 @@ namespace Geomonitoreo.API.Controllers;
 public class GeocercasController(IServicioGeocercas geocercas) : ControllerBase
 {
     /// <summary>
-    /// Las geocercas que conoce Geomonitoreo, actualizadas desde MobiControl. Si la consola no
-    /// responde, salen las formas guardadas con <c>sincronizadas: false</c> y el motivo.
+    /// Las geocercas de la consola de MobiControl con su forma vigente, más las que Geomonitoreo
+    /// conocía y ya no están allá (marcadas). Si la consola no responde, salen las formas guardadas
+    /// con <c>sincronizadas: false</c> y el motivo.
     /// </summary>
     [HttpGet]
     public async Task<ActionResult<ListaGeocercasDto>> Listar(CancellationToken ct) =>
@@ -27,14 +28,6 @@ public class GeocercasController(IServicioGeocercas geocercas) : ControllerBase
         var creada = await geocercas.CrearAsync(solicitud, ct);
         return CreatedAtAction(nameof(Listar), null, creada);
     }
-
-    /// <summary>
-    /// Trae una geocerca hecha en la consola de MobiControl. Va por nombre porque la API de
-    /// MobiControl no permite listarlas.
-    /// </summary>
-    [HttpPost("importar")]
-    public async Task<ActionResult<GeocercaDto>> Importar(ImportarGeocercaRequest solicitud, CancellationToken ct) =>
-        Ok(await geocercas.ImportarAsync(solicitud.Nombre, ct));
 
     [HttpPut("{uid:guid}")]
     public async Task<ActionResult<GeocercaDto>> Actualizar(Guid uid, GuardarGeocercaRequest solicitud, CancellationToken ct) =>
