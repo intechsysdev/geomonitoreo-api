@@ -13,7 +13,9 @@ public sealed record ConfiguracionEmpresa(
     string? MobiControlUsuario,
     string? MobiControlPassword,
     int MobiControlTimeoutSegundos,
-    string ConfigVersion)
+    string ConfigVersion,
+    string? GoogleMapsApiKey = null,
+    string? GoogleMapsMapId = null)
 {
     public bool MobiControlConfigurado =>
         !string.IsNullOrWhiteSpace(MobiControlBaseUrl) &&

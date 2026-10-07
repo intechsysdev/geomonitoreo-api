@@ -85,7 +85,9 @@ public class ProveedorConfiguracionOne(
             MobiControlUsuario: V("MOBICONTROL_USUARIO"),
             MobiControlPassword: V("MOBICONTROL_PASSWORD"),
             MobiControlTimeoutSegundos: int.TryParse(V("MOBICONTROL_TIMEOUT_SEGUNDOS"), out var t) ? t : 25,
-            ConfigVersion: cuerpo.ConfigVersion ?? string.Empty);
+            ConfigVersion: cuerpo.ConfigVersion ?? string.Empty,
+            GoogleMapsApiKey: V("GOOGLE_MAPS_API_KEY"),
+            GoogleMapsMapId: V("GOOGLE_MAPS_MAP_ID"));
     }
 
     private sealed record RespuestaOne(

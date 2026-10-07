@@ -34,7 +34,14 @@ public record EquipoFlotaDto(
 /// <param name="Consultado">Cuándo se le preguntó a MobiControl; puede ser unos segundos antes que ahora.</param>
 public record FlotaDto(IReadOnlyList<EquipoFlotaDto> Equipos, DateTimeOffset Consultado);
 
-public record ConfiguracionDto(bool MobiControlConfigurado, string? Empresa);
+/// <param name="GoogleMaps">Para el mapa del navegador. Null si la empresa no tiene la key en One.</param>
+public record ConfiguracionDto(bool MobiControlConfigurado, string? Empresa, MapaGoogleDto? GoogleMaps);
+
+/// <summary>
+/// La key va al navegador: el mapa de Google se carga ahí y no hay forma de ocultarla. Por eso se
+/// restringe por dominio en Google Cloud, y solo se entrega a quien inició sesión.
+/// </summary>
+public record MapaGoogleDto(string ApiKey, string? MapId);
 
 public interface IServicioFlota
 {
@@ -72,7 +79,8 @@ public class ServicioFlota(
     public async Task<ConfiguracionDto> ConfiguracionAsync(CancellationToken ct = default)
     {
         var config = await configuracion.ObtenerAsync(EmpresaRequerida(), ct);
-        return new ConfiguracionDto(config?.MobiControlConfigurado ?? false, config?.TenantNombre);
+        var mapa = config?.GoogleMapsApiKey is { } llave ? new MapaGoogleDto(llave, config.GoogleMapsMapId) : null;
+        return new ConfiguracionDto(config?.MobiControlConfigurado ?? false, config?.TenantNombre, mapa);
     }
 
     public async Task<FlotaDto> ListarAsync(bool refrescar = false, CancellationToken ct = default)
