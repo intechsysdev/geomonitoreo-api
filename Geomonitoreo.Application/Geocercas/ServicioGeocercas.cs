@@ -77,7 +77,7 @@ public partial class ServicioGeocercas(
     private const int ConsultasSimultaneas = 4;
 
     /// <summary>Color de las geocercas que llegan de la consola, para distinguirlas de las dibujadas aquí.</summary>
-    private const string ColorDeConsola = "#a855f7";
+    private const string ColorDeConsola = "#da830b";
 
     private const int LargoNombre = 100;
 
@@ -322,7 +322,7 @@ public partial class ServicioGeocercas(
         geocerca.Descripcion = string.IsNullOrWhiteSpace(s.Descripcion) ? null : s.Descripcion.Trim();
         geocerca.Tipo = s.Tipo;
         geocerca.Activa = s.Activa;
-        geocerca.Color = s.Color is { } color && ColorHex().IsMatch(color) ? color.ToLowerInvariant() : "#0ea5e9";
+        geocerca.Color = s.Color is { } color && ColorHex().IsMatch(color) ? color.ToLowerInvariant() : "#e51e4a";
 
         switch (s.Tipo)
         {
