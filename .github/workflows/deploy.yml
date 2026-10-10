@@ -8,7 +8,7 @@ name: Desplegar geomonitoreo-api
 
 on:
   push:
-    branches: [main]
+    branches: [develop]
   workflow_dispatch:
 
 jobs:
