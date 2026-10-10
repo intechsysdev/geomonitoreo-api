@@ -27,7 +27,9 @@ jobs:
         run: dotnet build --configuration Release
 
       - name: dotnet publish
-        run: dotnet publish -c Release -o ${{env.DOTNET_ROOT}}/myapp
+        # Solo el API: publicar la solución entera deja en la carpeta un runtimeconfig.json por
+        # proyecto, y con dos candidatos App Service no sabe qué arrancar.
+        run: dotnet publish Geomonitoreo.API/Geomonitoreo.API.csproj -c Release -o ${{env.DOTNET_ROOT}}/myapp
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
@@ -48,6 +50,10 @@ jobs:
         with:
           name: .net-app
       
+      # OneDeploy (type: zip) recibe un .zip.
+      - name: Empaquetar
+        run: zip -qr ../app.zip . && mv ../app.zip .
+
       - name: Login to Azure
         uses: azure/login@v2
         with:
@@ -61,5 +67,9 @@ jobs:
         with:
           app-name: 'app-geomonitoreo-api-prd'
           slot-name: 'Production'
-          package: .
-          
+          package: app.zip
+          # Con type: zip usa OneDeploy, que limpia wwwroot y reinicia. Con ZipDeploy (sin type)
+          # copiaba las DLL encima de las que el proceso tenía abiertas y no reiniciaba.
+          type: zip
+          clean: true
+          restart: true
